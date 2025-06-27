@@ -4,6 +4,8 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich import box
+import tempfile
+import webbrowser
 
 
 class SimSiteGame:
@@ -97,6 +99,7 @@ class SimSiteGame:
         self.console.print(
             "[bold yellow]\n🎉 Congratulations! You've built a production-grade Pastebin system![/bold yellow]"
         )
+        self.render_mermaid()
 
     def get_choice(self, num):
         while True:
@@ -109,35 +112,44 @@ class SimSiteGame:
             self.console.print("[italic red]Invalid input. Try again.[/italic red]")
 
     def render_state(self):
-        self.console.print(
-            self.center("[bold]Current System Architecture:[/bold]"), style="cyan"
-        )
-        diagram = [
-            f"{self.emojis['Client']} Client",
-            "  |",
-            f"{self.emojis['Web Server']} Web Server",
-        ]
+        self.console.print("[bold]Current System Architecture:[/bold]", style="cyan")
+
+        lines = []
+
+        if "DNS" in self.components:
+            lines.append(f"{self.emojis['DNS']} DNS")
+            lines.append("  |")
+
+        lines.append(f"{self.emojis['Client']} Client")
 
         if "CDN" in self.components:
-            diagram.insert(1, f"{self.emojis['CDN']} CDN")
-        if "DNS" in self.components:
-            diagram.insert(0, f"{self.emojis['DNS']} DNS")
-        if "Write API" in self.components:
-            diagram.append(f"  |--> {self.emojis['Write API']} Write API")
-        if "Read API" in self.components:
-            diagram.append(f"  |--> {self.emojis['Read API']} Read API")
-        if "Analytics" in self.components:
-            diagram.append(f"  |--> {self.emojis['Analytics']} Analytics")
-        if "SQL" in self.components:
-            diagram.append(f"        |--> {self.emojis['SQL']} SQL")
-        if "Object Store" in self.components:
-            diagram.append(f"        |--> {self.emojis['Object Store']} Object Store")
+            lines.append("  |")
+            lines.append(f"{self.emojis['CDN']} CDN")
 
-        ascii_output = "\n".join(diagram)
-        self.console.print(
-            Panel.fit(
-                self.center(ascii_output), title="Architecture Diagram", style="magenta"
+        lines.append("  |")
+        lines.append(f"{self.emojis['Web Server']} Web Server")
+
+        if "Write API" in self.components:
+            lines.append("  |--> " + f"{self.emojis['Write API']} Write API")
+
+        if "Read API" in self.components:
+            lines.append("  |--> " + f"{self.emojis['Read API']} Read API")
+
+        if "SQL" in self.components:
+            lines.append("        |--> " + f"{self.emojis['SQL']} SQL")
+
+        if "Object Store" in self.components:
+            lines.append(
+                "        |--> " + f"{self.emojis['Object Store']} Object Store"
             )
+
+        if "Analytics" in self.components:
+            lines.append("  |--> " + f"{self.emojis['Analytics']} Analytics")
+
+        ascii_output = "\n".join(lines)
+
+        self.console.print(
+            Panel.fit(ascii_output, title="Architecture Diagram", style="magenta")
         )
 
     def load_stages_from_json(self):
@@ -152,6 +164,68 @@ class SimSiteGame:
             self._stages = self.load_stages_from_json()
         return self._stages
 
+    def render_mermaid(self):
+        import tempfile
+        import webbrowser
+
+        c = self.components
+        mermaid_lines = ["graph TD"]
+
+        def node_id(name):
+            return name.lower().replace(" ", "_")
+
+        def edge(a, b):
+            aid = node_id(a)
+            bid = node_id(b)
+            alabel = f'{self.emojis.get(a, "")} {a}'
+            blabel = f'{self.emojis.get(b, "")} {b}'
+            return f'    {aid}["{alabel}"] --> {bid}["{blabel}"]'
+
+        # Core graph
+        if "DNS" in c:
+            mermaid_lines.append(edge("DNS", "Client"))
+        else:
+            mermaid_lines.append(f'    client["{self.emojis["Client"]} Client"]')
+
+        if "CDN" in c:
+            mermaid_lines.append(edge("Client", "CDN"))
+            mermaid_lines.append(edge("CDN", "Web Server"))
+        else:
+            mermaid_lines.append(edge("Client", "Web Server"))
+
+        if "Read API" in c:
+            mermaid_lines.append(edge("Web Server", "Read API"))
+            mermaid_lines.append(edge("Read API", "SQL"))
+            mermaid_lines.append(edge("Read API", "Object Store"))
+
+        if "Write API" in c:
+            mermaid_lines.append(edge("Web Server", "Write API"))
+            mermaid_lines.append(edge("Write API", "SQL"))
+
+        if "Analytics" in c:
+            mermaid_lines.append(edge("Web Server", "Analytics"))
+
+        html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <script src="https://cdn.jsdelivr.net/npm/mermaid@11.7.0/dist/mermaid.min.js"></script>
+    </head>
+    <body>
+      <div class="mermaid">
+    {chr(10).join(mermaid_lines)}
+      </div>
+      <script>mermaid.initialize({{ startOnLoad: true }});</script>
+    </body>
+    </html>
+    """
+
+        with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False) as f:
+            f.write(html)
+            webbrowser.open_new_tab(f.name)
+        _new_tab(f.name)
+
     def typewriter(self, text):
         import time
         from rich.markup import render
@@ -161,7 +235,7 @@ class SimSiteGame:
             centered_line = line.center(self.console.size.width)
             for char in centered_line:
                 self.console.print(char, end="", soft_wrap=True, highlight=False)
-                time.sleep(0.01)
+                time.sleep(0.001)
             self.console.print()
 
 
