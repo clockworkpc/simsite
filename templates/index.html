@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SimSite Game</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body class="p-4">
+  <h1>SimSite</h1>
+
+  <div class="alert alert-info shadow-sm p-3 rounded" role="alert">
+    <h4 class="alert-heading">Scenario Update</h4>
+    <p>{{ story }}</p>
+  </div>
+
+  <p><strong>Budget:</strong> ${{ state.BUDGET }}</p>
+  <p><strong>Score:</strong> {{ state.SCORE }}</p>
+  <p><strong>Uptime:</strong> {{ state.UPTIME }}</p>
+
+  <form method="post" action="/action">
+    <button name="action" value="next_turn" class="btn btn-primary">Next Turn</button>
+    <button name="action" value="hire_dev" class="btn btn-success">Hire Dev (-$100)</button>
+  </form>
+
+  <h2 class="mt-4">Toggle Features</h2>
+  <form method="post" action="/action">
+    {% for feature, enabled in state.enabled_features.items() %}
+      <label class="form-check-label">
+        <input class="form-check-input" type="checkbox" name="feature" value="{{ feature }}"
+               {% if enabled %}checked{% endif %} onchange="this.form.submit()">
+        {{ feature }}
+      </label><br>
+    {% endfor %}
+    <input type="hidden" name="action" value="toggle_feature">
+  </form>
+
+  <h2 class="mt-4">Architecture Diagram</h2>
+  <pre class="mermaid">{{ state_diagram }}</pre>
+
+  <h2>Metrics</h2>
+  <canvas id="progressChart" width="600" height="200"></canvas>
+
+  <!-- Reset Game Button + Modal -->
+  <button type="button" class="btn btn-danger mt-4" data-bs-toggle="modal" data-bs-target="#resetModal">
+    Reset Game
+  </button>
+
+  <div class="modal fade" id="resetModal" tabindex="-1" aria-labelledby="resetModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="resetModalLabel">Confirm Game Reset</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          Are you sure you want to erase your current progress and start over?
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <a href="/reset" class="btn btn-danger">Yes, Reset</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/chart-refresh.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/mermaid-render.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/modal-tooltips.js') }}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
