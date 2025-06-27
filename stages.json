@@ -1,0 +1,156 @@
+[
+  {
+    "prompt": "You want pastes to persist. What's your next step?",
+    "options": [
+      {
+        "text": "Use Redis",
+        "reason": "Volatile memory, not suitable for long-term persistence"
+      },
+      {
+        "text": "Save to local disk",
+        "reason": "Doesn't scale and prone to single point of failure"
+      },
+      {
+        "text": "Add SQL database",
+        "reason": "Reliable and scalable persistent storage"
+      }
+    ],
+    "correct": {
+      "text": "Add SQL database",
+      "component": "SQL",
+      "reason": "Redis stores data in-memory and is not durable by default. Local disk is not resilient. SQL DBs provide durable and structured storage at scale."
+    }
+  },
+  {
+    "prompt": "Traffic increases. Write requests are slow. What do you do?",
+    "options": [
+      {
+        "text": "Add more Web Servers",
+        "reason": "Doesn't solve database bottleneck"
+      },
+      {
+        "text": "Split read/write API",
+        "reason": "Isolates workload and allows independent scaling"
+      },
+      {
+        "text": "Use caching",
+        "reason": "Helps reads, not writes"
+      }
+    ],
+    "correct": {
+      "text": "Split read/write API",
+      "component": "Write API",
+      "reason": "Web servers won't help if the bottleneck is logic-heavy writes. Caching benefits reads. Splitting APIs allows scaling independently for specific concerns."
+    }
+  },
+  {
+    "prompt": "Reads are slow. What's your fix?",
+    "options": [
+      {
+        "text": "Use SQL master for reads",
+        "reason": "Adds load to critical write path"
+      },
+      {
+        "text": "Add SQL read replicas",
+        "reason": "Scales reads efficiently"
+      },
+      {
+        "text": "Use file system cache",
+        "reason": "Not reliable for all data"
+      }
+    ],
+    "correct": {
+      "text": "Add SQL read replicas",
+      "component": "Read API",
+      "reason": "The master DB should be write-focused. Read replicas allow scaling without impacting write performance or risking data consistency."
+    }
+  },
+  {
+    "prompt": "Users paste large logs and files. What do you do?",
+    "options": [
+      {
+        "text": "Base64 encode in SQL",
+        "reason": "Bloats DB and causes poor performance"
+      },
+      {
+        "text": "Use Object Store",
+        "reason": "Purpose-built for binary blobs and static data"
+      },
+      {
+        "text": "Use gzip in SQL",
+        "reason": "Adds compression, but doesn't solve storage scaling"
+      }
+    ],
+    "correct": {
+      "text": "Use Object Store",
+      "component": "Object Store",
+      "reason": "Storing large blobs in SQL is inefficient. Object stores (like S3) are optimized for this use case and scale independently of relational data."
+    }
+  },
+  {
+    "prompt": "Static content delivery is slow. Fix?",
+    "options": [
+      {
+        "text": "Add more Web Servers",
+        "reason": "Won't solve geographic latency"
+      },
+      {
+        "text": "Add CDN",
+        "reason": "Pushes content closer to users"
+      },
+      {
+        "text": "Use browser caching",
+        "reason": "Helps repeat views, not first loads"
+      }
+    ],
+    "correct": {
+      "text": "Add CDN",
+      "component": "CDN",
+      "reason": "CDNs reduce latency by caching content near users globally. More web servers don't address distance-related delays."
+    }
+  },
+  {
+    "prompt": "You want usage stats. What's your move?",
+    "options": [
+      {
+        "text": "Query SQL for counts",
+        "reason": "Inefficient and slow for large traffic"
+      },
+      {
+        "text": "Add Analytics DB",
+        "reason": "Purpose-built for aggregations and metrics"
+      },
+      {
+        "text": "Add Google Analytics",
+        "reason": "Doesn't track internal paste usage"
+      }
+    ],
+    "correct": {
+      "text": "Add Analytics DB",
+      "component": "Analytics",
+      "reason": "Analytics workloads differ from transactional ones. A dedicated DB avoids slowing down core operations while enabling detailed insights."
+    }
+  },
+  {
+    "prompt": "Users in other countries see delays in DNS resolution. What do you do?",
+    "options": [
+      {
+        "text": "Use static IPs",
+        "reason": "No failover or geographic routing"
+      },
+      {
+        "text": "Use geo-aware DNS provider",
+        "reason": "Routes users to the nearest endpoint"
+      },
+      {
+        "text": "Self-host DNS",
+        "reason": "High effort and low benefit compared to managed options"
+      }
+    ],
+    "correct": {
+      "text": "Use geo-aware DNS provider",
+      "component": "DNS",
+      "reason": "Geo-aware DNS reduces lookup latency by routing users to the closest infrastructure. Static IPs don\u2019t support global scale."
+    }
+  }
+]
