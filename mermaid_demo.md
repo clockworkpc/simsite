@@ -1,6 +1,6 @@
 # Pastebin Architecture Diagram
 
-## Stage 0: Initial Diagram and Adding Storage
+## Initial Diagram and Adding Storage
 
 ### ✅ Initial Setup
 
@@ -20,7 +20,7 @@ graph TD
     readwriteapi -->|READ| webmemory
 ```
 
-## Stage 1: Persisting Data
+## Persisting Data
 
 <div style="display: flex; gap: 1em;">
 
@@ -134,7 +134,7 @@ graph TD
 ```
 
 
-## Stage 2: Improve Write Request Performance
+## Improve Write Request Performance
 
 ### ❌ Add more web servers
 
@@ -234,7 +234,7 @@ graph TD
 ```
 
 
-## Stage 3: Improve Read Request Performance
+## Improve Read Request Performance
 
 ### ❌ Add SQL Master for Read API
 
@@ -290,6 +290,7 @@ graph TD
 ```
 
 ### ✅ Add SQL Replicas for Read API
+
 ```mermaid
 graph TD
     client[🧑‍💻 Client]
@@ -325,67 +326,543 @@ graph TD
     sqlmaster -->|WRITE| sqlslave3
 ```
 
+## Handle large files and blobs
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## Stage 3: 
+### ❌ Encode large files as Base64 and store in SQL DB
 
 ```mermaid
 graph TD
-    %% Stage 0
     client[🧑‍💻 Client]
     web[🌐 Web Server]
     client <-->|GET| web
     client -->|POST| web
+    client -->|POST big files| web
 
+    readapi[📝 Read API]
+    writeapi[📝 Write API]
 
-    client --> |pastebin.com| dns
-    dns[📡 DNS]
-    write[✍️ Write API]
-    read[📖 Read API]
-    cdn[🚀 CDN]
-    analytics[📊 Analytics]
-    sql[🗄️ SQL]
-    objectstore[🧺 Object Store]
+    web <-->|READ| readapi
+    web -->|WRITE| writeapi
+    web -->|WRITE big files| writeapi
 
-    dns -->|104.22.68.199| client
-    client <-->|GET| cdn
-    web .->|POST| write
-    web <-->|GET| read
-    sql <-->|READ| analytics
-    objectstore <-->|READ| analytics
-    write -->|WRITE| sql
-    write -->|WRITE| objectstore
-    read <-->|READ| sql
-    read <-->|READ| objectstore
+    subgraph sqldb[ ✅ RDBMS]
+        sqlmaster[(🗄️ SQL Database Master)]
+        sqlslave1[(🗄️ SQL Database Slave)]
+        sqlslave2[(🗄️ SQL Database Slave)]
+        sqlslave3[(🗄️ SQL Database Slave)]
+    end
+
+    dbloadbalancer[ ⚖️ DB Load Balancer]
+
+    writeapi -->|WRITE| sqlmaster
+    writeapi -->|❌ WRITE base64| sqlmaster
+    readapi <-->|READ| dbloadbalancer
+
+    dbloadbalancer <-->|READ| sqlslave1
+    dbloadbalancer <-->|READ| sqlslave2
+    dbloadbalancer <-->|READ| sqlslave3
+
+    sqlmaster -->|WRITE| sqlslave1
+    sqlmaster -->|WRITE| sqlslave2
+    sqlmaster -->|WRITE| sqlslave3
+
+    sqlmaster -->|❌WRITE base64| sqlslave1
+    sqlmaster -->|❌WRITE base64| sqlslave2
+    sqlmaster -->|❌WRITE base64| sqlslave3
 ```
 
+### ❌ Compress large files with GZip and store in SQL DB
+
+```mermaid
+graph TD
+    client[🧑‍💻 Client]
+    web[🌐 Web Server]
+    client <-->|GET| web
+    client -->|POST| web
+    client -->|POST big files| web
+
+    readapi[📝 Read API]
+    writeapi[📝 Write API]
+
+    web <-->|READ| readapi
+    web -->|WRITE| writeapi
+    web -->|WRITE big files| writeapi
+
+    subgraph sqldb[ ✅ RDBMS]
+        sqlmaster[(🗄️ SQL Database Master)]
+        sqlslave1[(🗄️ SQL Database Slave)]
+        sqlslave2[(🗄️ SQL Database Slave)]
+        sqlslave3[(🗄️ SQL Database Slave)]
+    end
+
+    dbloadbalancer[ ⚖️ DB Load Balancer]
+
+    writeapi -->|WRITE| sqlmaster
+    writeapi -->|❌ WRITE GZIP| sqlmaster
+    readapi <-->|READ| dbloadbalancer
+
+    dbloadbalancer <-->|READ| sqlslave1
+    dbloadbalancer <-->|READ| sqlslave2
+    dbloadbalancer <-->|READ| sqlslave3
+
+    sqlmaster -->|WRITE| sqlslave1
+    sqlmaster -->|WRITE| sqlslave2
+    sqlmaster -->|WRITE| sqlslave3
+
+    sqlmaster -->|❌WRITE GZIP| sqlslave1
+    sqlmaster -->|❌WRITE GZIP| sqlslave2
+    sqlmaster -->|❌WRITE GZIP| sqlslave3
+```
+
+### ✅ Use Object Store for large files and blobs
+
+```mermaid
+graph TD
+    client[🧑‍💻 Client]
+
+    subgraph web[🌐 Web Server]
+        frontend[🖼️ Front End]
+        subgraph backend[🖥️ Back End]
+            readapi[📖 Read API]
+            writeapi[✏️ Write API]
+        end
+    end
+
+    client <-->|📄🟣| frontend
+    frontend <-->|GET 📄🟣| readapi
+    frontend -->|POST 📄🟣| writeapi
+
+
+    subgraph sqldb[ ✅ RDBMS]
+        dbloadbalancer[ ⚖️ DB Load Balancer]
+        sqlmaster[(🗄️ SQL Database Master 📄📄📄)]
+        sqlslave1[(🗄️ SQL Database Slave 📄📄📄)]
+        sqlslave2[(🗄️ SQL Database Slave 📄📄📄)]
+        sqlslave3[(🗄️ SQL Database Slave 📄📄📄)]
+    end
+
+    writeapi -->|WRITE 📄| sqlmaster
+
+    readapi <-->|READ 📄| dbloadbalancer
+
+    dbloadbalancer <-->|READ 📄| sqlslave1
+    dbloadbalancer <-->|READ 📄| sqlslave2
+    dbloadbalancer <-->|READ 📄| sqlslave3
+
+    sqlmaster -->|WRITE 📄| sqlslave1
+    sqlmaster -->|WRITE 📄| sqlslave2
+    sqlmaster -->|WRITE 📄| sqlslave3
+
+    objectstore[🧺 Object Store 🟣🟣🟣]
+    writeapi -->|WRITE 🟣| objectstore
+    readapi <-->|READ 🟣| objectstore
+```
+
+## Improve Static Content Delivery
+
+### ❌ Add more web servers
+
+```mermaid
+graph TD
+    client[🧑‍💻 Client]
+
+    subgraph web[🌐 Web Server]
+        frontend[🖼️ Front End]
+        subgraph backend[🖥️ Back End]
+            readapi[📖 Read API]
+            writeapi[✏️ Write API]
+        end
+    end
+
+    client <-->|📄🟣| frontend
+    frontend <-->|GET 📄🟣| readapi
+    frontend -->|POST 📄🟣| writeapi
+
+
+    subgraph sqldb[ ✅ RDBMS]
+        dbloadbalancer[ ⚖️ DB Load Balancer]
+        sqlmaster[(🗄️ SQL Database Master 📄📄📄)]
+        sqlslave1[(🗄️ SQL Database Slave 📄📄📄)]
+        sqlslave2[(🗄️ SQL Database Slave 📄📄📄)]
+        sqlslave3[(🗄️ SQL Database Slave 📄📄📄)]
+    end
+
+    writeapi -->|WRITE 📄| sqlmaster
+
+    readapi <-->|READ 📄| dbloadbalancer
+
+    dbloadbalancer <-->|READ 📄| sqlslave1
+    dbloadbalancer <-->|READ 📄| sqlslave2
+    dbloadbalancer <-->|READ 📄| sqlslave3
+
+    sqlmaster -->|WRITE 📄| sqlslave1
+    sqlmaster -->|WRITE 📄| sqlslave2
+    sqlmaster -->|WRITE 📄| sqlslave3
+
+    objectstore[🧺 Object Store 🟣🟣🟣]
+    writeapi -->|WRITE 🟣| objectstore
+    readapi <-->|READ 🟣| objectstore
+```
+
+### ❌ Cache static files in client browser
+
+```mermaid
+graph TD
+    client[🧑‍💻 Client]
+
+    subgraph web[🌐 Web Server]
+        frontend[🖼️ Front End]
+        subgraph backend[🖥️ Back End]
+            readapi[📖 Read API]
+            writeapi[✏️ Write API]
+        end
+    end
+
+    client <-->|📄🟣| frontend
+    frontend <-->|GET 📄🟣| readapi
+    frontend -->|POST 📄🟣| writeapi
+
+
+    subgraph sqldb[ ✅ RDBMS]
+        dbloadbalancer[ ⚖️ DB Load Balancer]
+        sqlmaster[(🗄️ SQL Database Master 📄📄📄)]
+        sqlslave1[(🗄️ SQL Database Slave 📄📄📄)]
+        sqlslave2[(🗄️ SQL Database Slave 📄📄📄)]
+        sqlslave3[(🗄️ SQL Database Slave 📄📄📄)]
+    end
+
+    writeapi -->|WRITE 📄| sqlmaster
+
+    readapi <-->|READ 📄| dbloadbalancer
+
+    dbloadbalancer <-->|READ 📄| sqlslave1
+    dbloadbalancer <-->|READ 📄| sqlslave2
+    dbloadbalancer <-->|READ 📄| sqlslave3
+
+    sqlmaster -->|WRITE 📄| sqlslave1
+    sqlmaster -->|WRITE 📄| sqlslave2
+    sqlmaster -->|WRITE 📄| sqlslave3
+
+    objectstore[🧺 Object Store 🟣🟣🟣]
+    writeapi -->|WRITE 🟣| objectstore
+    readapi <-->|READ 🟣| objectstore
+```
+
+### ✅ Use CDN for static files
+
+```mermaid
+graph TD
+    subgraph web[🌐 Web Server]
+        frontend[🖼️ Front End]
+        subgraph backend[🖥️ Back End]
+            readapi[📖 Read API]
+            writeapi[✏️ Write API]
+        end
+    end
+
+
+    subgraph regions [🌐 CDN]
+        subgraph regionus[USA Region 🇺🇸]
+            clientus[🧑‍💻 Client 🇺🇸]
+            cdnus[🇺🇸 CDN USA]
+        end
+        subgraph regioneu[CDN EU 🇪🇺]
+            clienteu[🧑‍💻 Client 🇪🇺]
+            cdneu[🇪🇺 CDN EU]
+        end
+        subgraph regionil[CDN IL 🇮🇱]
+            clientil[🧑‍💻 Client 🇮🇱]
+            cdnil[🇮🇱 CDN IL]
+        end
+        subgraph regionjp[CDN JP 🇯🇵]
+            clientjp[🧑‍💻 Client 🇯🇵]
+            cdnjp[🇯🇵 CDN JP]
+        end
+    end
+
+
+    clientus <-->|📄🟣| frontend
+    clienteu <-->|📄🟣| frontend
+    clientil <-->|📄🟣| frontend
+    clientjp <-->|📄🟣| frontend
+
+    clientus <-->|GET 📄🟣| cdnus
+    clienteu <-->|GET 📄🟣| cdneu
+    clientil <-->|GET 📄🟣| cdnil
+    clientjp <-->|GET 📄🟣| cdnjp
+
+    frontend <-->|GET 📄🟣| readapi
+    frontend -->|POST 📄🟣| writeapi
+
+
+    subgraph sqldb[ ✅ RDBMS]
+        dbloadbalancer[ ⚖️ DB Load Balancer]
+        sqlmaster[(🗄️ SQL Database Master 📄📄📄)]
+        sqlslave1[(🗄️ SQL Database Slave 📄📄📄)]
+        sqlslave2[(🗄️ SQL Database Slave 📄📄📄)]
+        sqlslave3[(🗄️ SQL Database Slave 📄📄📄)]
+    end
+
+    writeapi -->|WRITE 📄| sqlmaster
+
+    readapi <-->|READ 📄| dbloadbalancer
+
+    dbloadbalancer <-->|READ 📄| sqlslave1
+    dbloadbalancer <-->|READ 📄| sqlslave2
+    dbloadbalancer <-->|READ 📄| sqlslave3
+
+    sqlmaster -->|WRITE 📄| sqlslave1
+    sqlmaster -->|WRITE 📄| sqlslave2
+    sqlmaster -->|WRITE 📄| sqlslave3
+    sqlmaster -->|WRITE 📄| cdnus
+    sqlmaster -->|WRITE 📄| cdneu
+    sqlmaster -->|WRITE 📄| cdnil
+    sqlmaster -->|WRITE 📄| cdnjp
+
+    objectstore[🧺 Object Store 🟣🟣🟣]
+    writeapi -->|WRITE 🟣| objectstore
+    readapi <-->|READ 🟣| objectstore
+```
+
+## Usage Stats and Analytics
+
+### ✅ Add Analytics DB
+
+```mermaid
+graph TD
+
+    subgraph analyticsmicroservice[📊 Analytics Microservice]
+        analyticsclient[🧑‍💻 Analytics Client]
+        analyticsapiendpoint[📈 Analytics API Endpoint]
+        analyticsapiserver[🖥️ Back End 📊]
+        analyticsdb[🗄️ Analytics DB]
+    end
+
+    subgraph web[🌐 Web Server]
+        frontend[🖼️ Front End]
+
+        subgraph backend[🖥️ Back End]
+            readapi[📖 Read API]
+            writeapi[✏️ Write API]
+        end
+
+        subgraph cdnworkerpool[🛠️ CDN Worker Pool]
+            direction TB
+            cdnloadbalancer[⚖️ CDN Load Balancer]
+            cdnworker1[🛠️ CDN Worker 1]
+            cdnworker2[🛠️ CDN Worker 2]
+            cdnworker3[🛠️ CDN Worker 3]
+            cdnloadbalancer --> cdnworker1 --> cdnworker2 --> cdnworker3
+        end
+
+        objectstore[🧺 Object Store 🟣🟣🟣]
+    end
+
+    subgraph sqldb[ ✅ RDBMS]
+    sqlreverseproxy[🔄 SQL Reverse Proxy]
+        sqlmaster[(🗄️ SQL Database Master 📄📄📄)]
+        subgraph sqlslaves[SQL Database Slaves 📄📄📄]
+            dbloadbalancer[ ⚖️ DB Replicas Load Balancer]
+            sqlslave1[(🗄️ SQL Database Slave)]
+            sqlslave2[(🗄️ SQL Database Slave)]
+            sqlslave3[(🗄️ SQL Database Slave)]
+        end
+    end
+
+
+    subgraph regions [🌐 CDN]
+        cdnreverseproxy[🔄 CDN Reverse Proxy]
+        subgraph regionus[USA Region 🇺🇸]
+            clientus[🧑‍💻 Client 🇺🇸]
+            cdnus[🇺🇸 CDN USA]
+        end
+        subgraph regioneu[EU Region 🇪🇺]
+            clienteu[🧑‍💻 Client 🇪🇺]
+            cdneu[🇪🇺 CDN EU]
+        end
+        subgraph regionil[Israel Region 🇮🇱]
+            clientil[🧑‍💻 Client 🇮🇱]
+            cdnil[🇮🇱 CDN IL]
+        end
+        subgraph regionjp[Japan Region 🇯🇵]
+            clientjp[🧑‍💻 Client 🇯🇵]
+            cdnjp[🇯🇵 CDN JP]
+        end
+    end
+
+
+    frontend <-->|GET 📄🟣| readapi
+    frontend -->|POST 📄🟣| writeapi
+
+    writeapi -->|WRITE 📄| sqlreverseproxy --> sqlmaster
+    readapi <-->|READ 📄| sqlreverseproxy
+
+    dbloadbalancer <-->|RW 📄| sqlslave1
+    dbloadbalancer <-->|RW 📄| sqlslave2
+    dbloadbalancer <-->|RW 📄| sqlslave3
+
+    sqlmaster -->|WRITE 📄| dbloadbalancer
+
+    readapi -->|WRITE 🟣📄| cdnworkerpool
+    cdnworkerpool -->|WRITE 🟣📄| cdnreverseproxy
+    sqlmaster -->|WRITE 📄| sqlreverseproxy --> |WRITE 📄| analyticsapiendpoint --> analyticsapiserver --> |RW 📄| analyticsdb
+    analyticsclient <-->|GET 📊| analyticsapiendpoint <--> analyticsapiserver
+
+    objectstore[🧺 Object Store 🟣🟣🟣]
+    writeapi -->|WRITE 🟣| objectstore
+    readapi <-->|READ 🟣| objectstore
+
+
+    clientus <-->|GET 📄🟣| cdnus
+    clienteu <-->|GET 📄🟣| cdneu
+    clientil <-->|GET 📄🟣| cdnil
+    clientjp <-->|GET 📄🟣| cdnjp
+
+    cdnreverseproxy -->|WRITE 📄🟣| cdnus
+    cdnreverseproxy -->|WRITE 📄🟣| cdneu
+    cdnreverseproxy -->|WRITE 📄🟣| cdnil
+    cdnreverseproxy -->|WRITE 📄🟣| cdnjp
+```
+
+## Delays in DNS Resolution
+
+### ✅ Add Geo-aware DNS Provider
+```mermaid
+graph TD
+    subgraph regions [🌐 Regions]
+
+        %% Clients
+        clientus[🧑‍💻 Client 🇺🇸]
+        clienteu[🧑‍💻 Client 🇪🇺]
+        clientil[🧑‍💻 Client 🇮🇱]
+        clientjp[🧑‍💻 Client 🇯🇵]
+
+        %% Geo-aware DNS
+        geodns[🌐 Geo-aware DNS]
+
+        %% Global Load Balancer
+        globallb[🧭 Global Load Balancer]
+
+        %% DNS Routing
+        clientus --> geodns
+        clienteu --> geodns
+        clientil --> geodns
+        clientjp --> geodns
+
+        geodns -->|🇺🇸| globallb
+        geodns -->|🇪🇺| globallb
+        geodns -->|🇮🇱| globallb
+        geodns -->|🇯🇵| globallb
+
+        %% CDN Routing
+        clientus <-->|GET 📄🟣| cdnus
+        clienteu <-->|GET 📄🟣| cdneu
+        clientil <-->|GET 📄🟣| cdnil
+        clientjp <-->|GET 📄🟣| cdnjp
+
+        %% Regional Subgraphs
+        subgraph regionus[🇺🇸 Region - USA]
+            cdnus[🍱 CDN 🇺🇸]
+            dnsuspop[🛰️ DNS PoP 🇺🇸]
+            subgraph uswebserver[🖥️ Web Server 🇺🇸]
+                usreadapi[📖 Read API 🇺🇸]
+                uswriteapi[✏️ Write API 🇺🇸]
+            end
+        end
+
+        subgraph regioneu[🇪🇺 Region - Europe]
+            cdneu[🍱 CDN 🇪🇺]
+            dnseupop[🛰️ DNS PoP 🇪🇺]
+            subgraph euwebserver[🖥️ Web Server 🇪🇺]
+                eureadapi[📖 Read API 🇪🇺]
+                euwriteapi[✏️ Write API 🇪🇺]
+            end            
+        end
+
+        subgraph regionil[🇮🇱 Region - Israel]
+            cdnil[🍱 CDN 🇮🇱]
+            dnsilpop[🛰️ DNS PoP 🇮🇱]
+            subgraph ilwebserver[🖥️ Web Server 🇮🇱]
+                ilreadapi[📖 Read API 🇮🇱]
+                ilwriteapi[✏️ Write API 🇮🇱]
+            end
+        end
+
+        subgraph regionjp[🇯🇵 Region - Japan]
+            cdnjp[🍱 CDN 🇯🇵]
+            dnsjppop[🛰️ DNS PoP 🇯🇵]
+            subgraph jpwebserver[🖥️ Web Server 🇯🇵]
+                jpreadapi[📖 Read API 🇯🇵]
+                jpwriteapi[✏️ Write API 🇯🇵]
+            end
+        end
+    end
+
+    subgraph analyticsmicroservice[📊 Analytics Microservice]
+        analyticsclient[🧑‍💻 Analytics Client]
+        analyticsapiendpoint[📈 Analytics API Endpoint]
+        analyticsapiserver[🖥️ Back End 📊]
+        analyticsdb[🗄️ Analytics DB]
+    end
+
+    subgraph web[🌐 Web Server]
+        frontend[🖼️ Front End]
+
+        subgraph backend[🖥️ Back End]
+            readapi[📖 Read API]
+            writeapi[✏️ Write API]
+        end
+    end
+
+    subgraph sqldb[✅ Storage]
+        storagereverseproxy[🔄 Storage Reverse Proxy]
+        objectstore[🧺 Object Store 🟣🟣🟣]
+        sqlmaster[(🗄️ SQL Database Master 📄📄📄)]
+        subgraph sqlslaves[SQL Database Slaves 📄📄📄]
+            dbloadbalancer[⚖️ DB Replicas Load Balancer]
+            sqlslave1[(🗄️ SQL Database Slave)]
+            sqlslave2[(🗄️ SQL Database Slave)]
+            sqlslave3[(🗄️ SQL Database Slave)]
+        end
+    end
+
+    subgraph cdn [🌐 CDN]
+        cdnreverseproxy[🔄 CDN Reverse Proxy]
+        cdnserver[🔄 CDN Server]
+        subgraph cdnworkerpool[🛠️ CDN Worker Pool]
+            cdnworker1[🛠️ CDN Worker 1]
+            cdnworker2[🛠️ CDN Worker 2]
+            cdnworker3[🛠️ CDN Worker 3]
+        end
+        cdnserver --> cdnworker1 --> cdnworker2 --> cdnworker3
+    end
+
+    %% Web Server ↔ Backend
+    frontend <-->|GET 📄🟣| readapi
+    frontend -->|POST 📄🟣| writeapi
+
+    %% API → Storage
+    writeapi -->|WRITE 📄| storagereverseproxy --> sqlmaster
+    readapi <-->|READ 📄| storagereverseproxy
+
+    %% SQL Replication
+    dbloadbalancer <-->|RW 📄| sqlslave1
+    dbloadbalancer <-->|RW 📄| sqlslave2
+    dbloadbalancer <-->|RW 📄| sqlslave3
+    sqlmaster -->|WRITE 📄| dbloadbalancer
+
+    %% CDN Data Ingest
+    cdnworkerpool -->|WRITE 🟣📄| cdnserver
+    cdnserver -->|WRITE 📄🟣| cdnloadbalancer
+    cdnserver -->|WRITE 📄🟣| cdnloadbalancer
+    cdnserver -->|WRITE 📄🟣| cdnloadbalancer
+    cdnserver -->|WRITE 📄🟣| cdnloadbalancer
+
+    %% Analytics pipeline
+    sqlmaster -->|WRITE 📄| storagereverseproxy --> |WRITE 📄| analyticsapiendpoint --> analyticsapiserver --> |RW 📄| analyticsdb
+    analyticsclient <-->|GET 📊| analyticsapiendpoint <--> analyticsapiserver
+
+    %% Object Store access
+    writeapi -->|WRITE 🟣| storagereverseproxy --> objectstore
+    readapi <-->|READ 🟣| objectstore
+```
