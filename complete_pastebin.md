@@ -1,110 +1,105 @@
 ```mermaid
 graph TD
 
-    %% Subgraph: Regions
-    subgraph regions [🌐 Regions]
-        clientus[🧑‍💻 Client 🇺🇸]
-        geodns[🌐 Geo-aware DNS]
-        globallb[🧭 Global Load Balancer]
+  %% Subgraph: Regions
+  subgraph regions [🌐 Regions]
+    clientus[🧑‍💻 Client 🇺🇸]
+    geodns[🌐 Geo-aware DNS]
+    globallb[🗭 Global Load Balancer]
 
-        subgraph regionus[🇺🇸 Region - USA]
-            cdnus[🍱 CDN 🇺🇸]
-            subgraph usorigin[🖥️ Origin 🇺🇸]
-                uscache[🧊 Cache Layer 🇺🇸]
-                usfrontend[🖼️ Front End 🇺🇸]
-                usreadapi[📖 Read API 🇺🇸]
-                uswriteapi[✏️ Write API 🇺🇸]
-            end
-        end
+    subgraph us_region[🇺🇸 Region - USA]
+      subgraph us_origin[💻 Origin 🇺🇸]
+        us_cache[🧊 Cache Layer 🇺🇸]
+        us_frontend[🖼️ Front End 🇺🇸]
+        us_read_api[📖 Read API 🇺🇸]
+        us_write_api[✏️ Write API 🇺🇸]
+      end
     end
+  end
 
-    %% Subgraph: Analytics Microservice
-    subgraph analyticsmicroservice[📊 Analytics Microservice]
-        analyticsclient[🧑‍💻 Analytics Client]
-        analyticsapiendpoint[📈 Analytics API Endpoint]
-        analyticsapiserver[🖥️ Back End 📊]
-        analyticsdb[🗄️ Analytics DB]
+  %% Subgraph: Analytics Microservice
+  subgraph analyticsmicroservice[📊 Analytics Microservice]
+    analyticsclient[🧑‍💻 Analytics Client]
+    analyticsapiendpoint[📈 Analytics API Endpoint]
+    analyticsapiserver[💻 Back End 📊]
+    analyticsdb[📒 Analytics DB]
+  end
+
+  %% Subgraph: SQL + Object Storage
+  subgraph sqldb[✅ Storage]
+    storagereverseproxy[🔄 Storage Reverse Proxy]
+    objectstore[🧺 Object Store 🟣🟣🟣]
+    sqlmaster[(📒 SQL DB Master 📄📄📄)]
+    subgraph sqlslaves[SQL Database Slaves 📄📄📄]
+      dbloadbalancer[⚖️ DB Replicas Load Balancer]
+      sqlslave1[(📒 SQL DB Slave)]
+      sqlslave2[(📒 SQL DB Slave)]
+      sqlslave3[(📒 SQL DB Slave)]
     end
+  end
 
-    %% Subgraph: SQL + Object Storage
-    subgraph sqldb[✅ Storage]
-        storagereverseproxy[🔄 Storage Reverse Proxy]
-        objectstore[🧺 Object Store 🟣🟣🟣]
-        sqlmaster[(🗄️ SQL Database Master 📄📄📄)]
-        subgraph sqlslaves[SQL Database Slaves 📄📄📄]
-            dbloadbalancer[⚖️ DB Replicas Load Balancer]
-            sqlslave1[(🗄️ SQL Database Slave)]
-            sqlslave2[(🗄️ SQL Database Slave)]
-            sqlslave3[(🗄️ SQL Database Slave)]
-        end
-    end
+  %% Subgraph: CDN Layer
+  subgraph cdn [🌐 CDN]
+    cdnentrypoint[🌐 CDN Entry Point]
+    cdnloadbalancer[⚖️ CDN Ingest Load Balancer]
+    cdnserver[🔄 CDN Ingest Server]
+    cdnworkerpool[🛠️ CDN Worker Pool]
+  end
 
-    %% Subgraph: CDN Layer
-    subgraph cdn [🌐 CDN]
-        cdnloadbalancer[⚖️ CDN Ingest Load Balancer]
-        cdnserver[🔄 CDN Ingest Server]
-        subgraph cdnworkerpool[🛠️ CDN Worker Pool]
-            cdnworker1[🛠️ CDN Edge Node 1]
-            cdnworker2[🛠️ CDN Edge Node 2]
-            cdnworker3[🛠️ CDN Edge Node 3]
-        end
-    end
+  %% ===========================
+  %% ======= Traffic Flow =======
+  %% ===========================
 
-    %% ============================
-    %% ======= Traffic Flow =======
-    %% ============================
+  %% Entry Path
+  clientus -->|GET/POST 📄🟣| geodns
+  geodns -->|🇺🇸| globallb
 
-    %% Client to DNS to Load Balancer
-    clientus -->|GET/POST 📄🟣| geodns
-    geodns -->|🇺🇸| globallb
+  %% Static content routes to CDN entry point
+  globallb -->|Static 📄| cdnentrypoint
 
-    %% Static: Global Load Balancer to CDN
-    globallb -->|Static 📄| cdnus
+  %% Dynamic content or cache miss also goes to CDN entry point
+  globallb -->|Dynamic 📄| cdnentrypoint
 
-    %% Dynamic & Fallback: Global Load Balancer to Origin
-    globallb -->|Dynamic 📄 / Cache MISS| uscache
+  %% CDN Entry Point logic
+  cdnentrypoint -->|TTL HIT| cdnworkerpool
+  cdnentrypoint -->|TTL MISS| us_cache
 
-    %% CDN Routing (optional replication)
-    cdnloadbalancer --> cdnus
+  %% Response Path (always flows back via CDN entry)
+  cdnworkerpool -->|Serve content| cdnentrypoint
+  us_cache -->|Dynamic response| cdnentrypoint
+  cdnentrypoint -->|Deliver content| clientus
 
-    %% CDN Ingest (Object Store to Edge)
-    objectstore -->|PUSH static 📄🟣| cdnloadbalancer
-    cdnloadbalancer --> cdnserver
-    cdnserver --> cdnworker1
-    cdnserver --> cdnworker2
-    cdnserver --> cdnworker3
+  %% CDN Ingest Path (Origin → CDN)
+  objectstore -->|PUSH static 📄🟣| cdnloadbalancer
+  cdnloadbalancer --> cdnserver
+  cdnserver --> cdnworkerpool
 
-    %% CDN edge nodes serve static content
-    cdnworker1 -->|GET static 📄🟣| clientus
-    cdnworker2 -->|GET static 📄🟣| clientus
-    cdnworker3 -->|GET static 📄🟣| clientus
+  %% Origin App Logic
+  us_cache --> us_frontend
+  us_frontend -->|GET 📄| us_read_api
+  us_frontend -->|POST 📄| us_write_api
 
-    %% CDN to Origin via Cache
-    cdnus --> uscache
-    uscache --> usfrontend
-    usfrontend -->|GET 📄| usreadapi
-    usfrontend -->|POST 📄| uswriteapi
+  us_write_api -->|WRITE 📄| storagereverseproxy
+  us_read_api -->|READ 📄| storagereverseproxy
+  storagereverseproxy -->|WRITE 📄| sqlmaster
+  us_write_api -->|WRITE 🟣| storagereverseproxy
+  storagereverseproxy --> objectstore
+  objectstore --> us_read_api
 
-    %% API to Storage
-    uswriteapi -->|WRITE 📄| storagereverseproxy
-    usreadapi -->|READ 📄| storagereverseproxy
-    storagereverseproxy -->|WRITE 📄| sqlmaster
-    uswriteapi -->|WRITE 🟣| storagereverseproxy
-    storagereverseproxy --> objectstore
-    objectstore --> usreadapi
+  %% DB Replication
+  sqlmaster -->|WRITE 📄| dbloadbalancer
+  dbloadbalancer -->|RW 📄| sqlslave1
+  dbloadbalancer -->|RW 📄| sqlslave2
+  dbloadbalancer -->|RW 📄| sqlslave3
 
-    %% SQL Replication
-    sqlmaster -->|WRITE 📄| dbloadbalancer
-    dbloadbalancer -->|RW 📄| sqlslave1
-    dbloadbalancer -->|RW 📄| sqlslave2
-    dbloadbalancer -->|RW 📄| sqlslave3
+  %% Analytics
+  sqlmaster -->|WRITE 📄| storagereverseproxy
+  storagereverseproxy -->|WRITE 📄| analyticsapiendpoint
+  analyticsapiendpoint --> analyticsapiserver
+  analyticsapiserver -->|RW 📄| analyticsdb
+  analyticsclient <-->|GET 📊| analyticsapiendpoint
+  analyticsapiendpoint <--> analyticsapiserver
 
-    %% Analytics pipeline
-    sqlmaster -->|WRITE 📄| storagereverseproxy
-    storagereverseproxy -->|WRITE 📄| analyticsapiendpoint
-    analyticsapiendpoint --> analyticsapiserver
-    analyticsapiserver -->|RW 📄| analyticsdb
-    analyticsclient <-->|GET 📊| analyticsapiendpoint
-    analyticsapiendpoint <--> analyticsapiserver
+  %% Storage Failover
+  storagereverseproxy -->|fallback read| dbloadbalancer
 ```
-
