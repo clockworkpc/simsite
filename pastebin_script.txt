@@ -1,0 +1,65 @@
+
+Stage one. The minimum viable product. One server, one process, doing everything — frontend, APIs, storage.
+It works... but barely. There's no redundancy, no visibility, and every user hits the same box.
+
+We break out the frontend as an addressable layer. Clients now talk directly to the frontend.
+Still monolithic, but it sets us up for something better.
+
+Now we plug in an object store. File systems don’t scale — object storage does.
+Durable, backed up, and built for high-traffic workloads.
+
+We bring in SQL to manage metadata — paste IDs, timestamps, expiration.
+The app can now answer questions, not just serve files.
+
+Now we add a frontend load balancer. Multiple frontend instances share the load.
+Traffic surges? Just spin up another node.
+
+Object storage reads are slow. So we cache.
+Hits return instantly. Misses fall back to the store. Performance, solved.
+
+A delete endpoint lets users remove pastes.
+Critical for privacy, security, and moderation.
+
+Next, abuse guard.
+Pastes are filtered before they’re stored. Think spam detection, rate limits, and content filters.
+
+We introduce centralized logging.
+Now we know what happened — and when.
+
+From logs come metrics.
+A live dashboard surfaces traffic, errors, and system health.
+
+Clients can now query analytics through an API.
+Public stats, powered by isolated infrastructure.
+
+Analytics becomes a full microservice, backed by its own database.
+Then we automate a complete ETL pipeline — extract, transform, load — to clean and feed that data.
+
+To drop global latency, we add a CDN.
+Edge caching, programmable workers, and smart rules shift load away from origin.
+
+We manage cache rules and TTLs via a CDN config layer.
+This gives us fine-grained control over what’s cached, when, and for how long.
+
+We push logic to the edge with CDN Workers.
+They can inspect requests, modify headers, even block abuse — all before traffic hits our origin.
+
+A global DNS layer routes users to the closest region.
+North America traffic goes to NA. Europe to EU.
+Latency drops, and we prepare for global failover.
+
+Our global load balancer adds redundancy across regions.
+Traffic is no longer bound to one continent — we can failover, balance loads, and shift users dynamically.
+
+We replicate our SQL database.
+A load balancer routes read queries to replicas. Writes still go to the primary.
+Now, read-heavy operations don’t bottleneck our write path.
+
+Object storage and SQL access now flow through a reverse proxy.
+One control point for access, throttling, and caching.
+
+At last — the full system.
+Global clients, distributed infrastructure, rate limiting, observability, ETL, analytics, CDN workers, and scalable storage.
+This isn't just a pastebin. It’s a battle-tested, production-grade, global platform.
+
+From one box to global scale... This is how systems evolve.
